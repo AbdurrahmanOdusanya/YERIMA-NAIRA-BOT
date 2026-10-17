@@ -367,9 +367,9 @@ function handleCommand(rawText: string, fromChatId: string, fromName: string) {
         `• Parallel (BDC): <b>₦${c.parallelRate.toLocaleString()}</b>\n\n` +
         `<b>🟢 USDT / NGN (P2P)</b>\n` +
         `• Benchmark: <b>₦${usdt.parallelRate.toLocaleString()}</b>\n\n` +
-        `<i>Set alert anytime with: <code>/alert USD 1650</code></i>`,
+        `<i>Set alert anytime with: /alert USD 1650</i>`,
       buttons: [
-        [{ text: '🔔 Alert USD ₦1,650', callback_data: '/alert USD 1650' }],
+        [{ text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }, { text: '🧮 /convert 100 USD', callback_data: '/convert 100 USD' }],
       ],
     };
   }
@@ -387,35 +387,103 @@ function handleCommand(rawText: string, fromChatId: string, fromName: string) {
         `• <b>Spread:</b> ₦${(r.parallelRate - r.officialRate).toFixed(2)}\n` +
         `• <b>24h High/Low:</b> ₦${r.low24h.toLocaleString()} - ₦${r.high24h.toLocaleString()}`,
       buttons: [
-        [{ text: `Set ${r.code} Alert`, callback_data: `/alert ${r.code} ${Math.round(r.parallelRate * 1.02)}` }],
+        [{ text: `🔔 /alert ${r.code} ${Math.round(r.parallelRate * 1.02)}`, callback_data: `/alert ${r.code} ${Math.round(r.parallelRate * 1.02)}` }, { text: `🧮 /convert 100 ${r.code}`, callback_data: `/convert 100 ${r.code}` }],
       ],
     };
   }
 
   if (command === '/convert' || command === '/calc') {
-    const amount = parseFloat(parts[1]) || 100;
-    const currency = (parts[2] || 'USD').toUpperCase();
-    const target = ratesData[currency] || ratesData.USD;
+    if (parts.length < 2 || !parts[1].trim()) {
+      return {
+        text: `⚠️ <b>Convert Currency</b>\n\nUsage: /convert [AMOUNT] [CURRENCY]\nExample: /convert 100 USD or /convert 250 EUR\n\n💡 <i>Tap any example to calculate instantly!</i>`,
+        buttons: [
+          [{ text: '🧮 /convert 100 USD', callback_data: '/convert 100 USD' }, { text: '🧮 /convert 250 EUR', callback_data: '/convert 250 EUR' }],
+          [{ text: '🧮 /convert 100 GBP', callback_data: '/convert 100 GBP' }, { text: '🧮 /convert 50000 NGN', callback_data: '/convert 50000 NGN' }],
+        ],
+      };
+    }
 
+    const clean1 = (parts[1] || '').replace(/[$,€,£,₦,]/g, '').trim();
+    const clean2 = (parts[2] || '').replace(/[$,€,£,₦,]/g, '').trim();
+
+    let amount = NaN;
+    let currency = 'USD';
+
+    if (!isNaN(parseFloat(clean1)) && isNaN(parseFloat(clean2))) {
+      amount = parseFloat(clean1);
+      currency = (clean2 || 'USD').toUpperCase();
+    } else if (isNaN(parseFloat(clean1)) && !isNaN(parseFloat(clean2))) {
+      amount = parseFloat(clean2);
+      currency = clean1.toUpperCase();
+    } else if (!isNaN(parseFloat(clean1))) {
+      amount = parseFloat(clean1);
+      currency = (parts[2] || 'USD').toUpperCase();
+    }
+
+    if (isNaN(amount) || amount <= 0) {
+      return {
+        text: `⚠️ <b>Invalid Conversion Format</b>\n\nUsage: /convert [AMOUNT] [CURRENCY]\nExample: /convert 100 USD or /convert 250 EUR`,
+        buttons: [
+          [{ text: '🧮 /convert 100 USD', callback_data: '/convert 100 USD' }, { text: '🧮 /convert 250 EUR', callback_data: '/convert 250 EUR' }],
+        ],
+      };
+    }
+
+    // Special conversion: Naira to foreign FX
+    if (currency === 'NGN') {
+      const u = ratesData.USD || { parallelRate: 1600, officialRate: 1530 };
+      const e = ratesData.EUR || { parallelRate: 1740, officialRate: 1670 };
+      const g = ratesData.GBP || { parallelRate: 2100, officialRate: 2000 };
+      const c = ratesData.CAD || { parallelRate: 1150, officialRate: 1100 };
+
+      const usdBuy = (amount / u.parallelRate).toFixed(2);
+      const eurBuy = (amount / e.parallelRate).toFixed(2);
+      const gbpBuy = (amount / g.parallelRate).toFixed(2);
+      const cadBuy = (amount / c.parallelRate).toFixed(2);
+
+      return {
+        text: `🧮 <b>NAIRA TO FOREIGN CURRENCY</b>\n\n<b>₦${amount.toLocaleString()} NGN</b> buys approximately:\n\n• <b>$${usdBuy} USD</b> (Parallel @ ₦${u.parallelRate.toLocaleString()})\n• <b>€${eurBuy} EUR</b> (Parallel @ ₦${e.parallelRate.toLocaleString()})\n• <b>£${gbpBuy} GBP</b> (Parallel @ ₦${g.parallelRate.toLocaleString()})\n• <b>$${cadBuy} CAD</b> (Parallel @ ₦${c.parallelRate.toLocaleString()})`,
+        buttons: [
+          [{ text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }, { text: '📊 /rates', callback_data: '/rates' }],
+        ],
+      };
+    }
+
+    const target = ratesData[currency] || ratesData.USD;
     const ngnParallel = amount * target.parallelRate;
     const ngnOfficial = amount * target.officialRate;
+    const diff = ngnParallel - ngnOfficial;
 
     return {
       text: `🧮 <b>CURRENCY CONVERSION</b>\n\n` +
         `<b>${amount.toLocaleString()} ${target.code}</b> equals:\n\n` +
-        `• <b>₦${ngnParallel.toLocaleString('en-US', { minimumFractionDigits: 2 })}</b> (Parallel @ ₦${target.parallelRate})\n` +
-        `• <b>₦${ngnOfficial.toLocaleString('en-US', { minimumFractionDigits: 2 })}</b> (Official @ ₦${target.officialRate})\n\n` +
-        `<i>Spread difference: ₦${(ngnParallel - ngnOfficial).toLocaleString('en-US', { minimumFractionDigits: 2 })}</i>`,
+        `• <b>₦${ngnParallel.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> (Parallel @ ₦${target.parallelRate.toLocaleString()})\n` +
+        `• <b>₦${ngnOfficial.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> (Official @ ₦${target.officialRate.toLocaleString()})\n\n` +
+        `<i>Spread difference: ₦${diff.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</i>`,
+      buttons: [
+        [
+          { text: `🔔 /alert ${target.code} ${Math.round(target.parallelRate * 1.02)}`, callback_data: `/alert ${target.code} ${Math.round(target.parallelRate * 1.02)}` },
+          { text: '📊 /rates', callback_data: '/rates' },
+        ],
+      ],
     };
   }
 
   if (command === '/alert') {
-    const cur = (parts[1] || 'USD').toUpperCase();
-    const target = parseFloat(parts[2]);
+    let cur = (parts[1] || '').toUpperCase();
+    let target = parseFloat(parts[2]);
 
-    if (!target || isNaN(target)) {
+    if (!isNaN(parseFloat(parts[1])) && isNaN(parseFloat(parts[2]))) {
+      target = parseFloat(parts[1]);
+      cur = (parts[2] || 'USD').toUpperCase();
+    }
+
+    if (!target || isNaN(target) || !cur) {
       return {
-        text: `⚠️ <b>Invalid Alert Format</b>\n\nUsage: <code>/alert [CURRENCY] [TARGET_PRICE]</code>\nExample: <code>/alert USD 1650</code> or <code>/alert EUR 1800</code>`,
+        text: `⚠️ <b>Invalid Alert Format</b>\n\nUsage: /alert [CURRENCY] [TARGET_PRICE]\nExample: /alert USD 1650 or /alert EUR 1800`,
+        buttons: [
+          [{ text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }, { text: '🔔 /alert EUR 1800', callback_data: '/alert EUR 1800' }],
+        ],
       };
     }
 
@@ -439,18 +507,31 @@ function handleCommand(rawText: string, fromChatId: string, fromName: string) {
         `Target Rate: <b>₦${target.toLocaleString()}</b>\n` +
         `Condition: Price rises above threshold\n\n` +
         `You will receive an instant notification right here as soon as this rate is reached!`,
+      buttons: [
+        [{ text: '📋 /alerts', callback_data: '/alerts' }, { text: '📊 /rates', callback_data: '/rates' }],
+      ],
     };
   }
 
   if (command === '/alerts') {
     if (alertRules.length === 0) {
-      return { text: `You have no active alerts configured. Use <code>/alert USD 1650</code> to create one!` };
+      return {
+        text: `You have no active alerts configured. Use /alert USD 1650 to create one!`,
+        buttons: [
+          [{ text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }],
+        ],
+      };
     }
     const list = alertRules
       .map((r, i) => `${i + 1}. <b>${r.name}</b> (${r.isActive ? '🟢 Active' : '⚪ Paused'})\n   Triggered: ${r.triggerCount} times`)
       .join('\n\n');
 
-    return { text: `📋 <b>YOUR ACTIVE ALERTS</b>\n\n${list}` };
+    return {
+      text: `📋 <b>YOUR ACTIVE ALERTS</b>\n\n${list}`,
+      buttons: [
+        [{ text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }, { text: '📊 /rates', callback_data: '/rates' }],
+      ],
+    };
   }
 
   if (command === '/status') {
@@ -461,25 +542,38 @@ function handleCommand(rawText: string, fromChatId: string, fromName: string) {
         `• Rate Check Interval: Every ${CHECK_INTERVAL_SECONDS} seconds\n` +
         `• Monitored Currencies: USD, EUR, GBP, CAD, AED, CNY, USDT\n` +
         `• Connected Chat: <code>${fromChatId}</code>`,
+      buttons: [
+        [{ text: '📊 /rates', callback_data: '/rates' }, { text: '📖 /help', callback_data: '/help' }],
+      ],
     };
   }
 
   if (command === '/help') {
     return {
       text: `📖 <b>Yerima Naira Bot Commands</b>\n\n` +
-        `• <code>/rates</code> - Full live rates table\n` +
-        `• <code>/usd</code> - Live US Dollar rates\n` +
-        `• <code>/eur</code> - Live Euro rates\n` +
-        `• <code>/gbp</code> - Live British Pound rates\n` +
-        `• <code>/convert 100 USD</code> - Convert currency to Naira\n` +
-        `• <code>/alert USD 1650</code> - Create threshold alert\n` +
-        `• <code>/alerts</code> - View all active rules\n` +
-        `• <code>/status</code> - Daemon health status`,
+        `• /rates - Full live rates table\n` +
+        `• /usd - Live US Dollar rates\n` +
+        `• /eur - Live Euro rates\n` +
+        `• /gbp - Live British Pound rates\n` +
+        `• /convert 100 USD - Convert currency to Naira\n` +
+        `• /alert USD 1650 - Create rate threshold alert\n` +
+        `• /alerts - List all active alert rules\n` +
+        `• /status - Bot health and sync status\n\n` +
+        `💡 <i>All data reflects verified open-market rates.</i>`,
+      buttons: [
+        [{ text: '📊 /rates', callback_data: '/rates' }, { text: '💵 /usd', callback_data: '/usd' }],
+        [{ text: '💶 /eur', callback_data: '/eur' }, { text: '💷 /gbp', callback_data: '/gbp' }],
+        [{ text: '🧮 /convert 100 USD', callback_data: '/convert 100 USD' }, { text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }],
+        [{ text: '📋 /alerts', callback_data: '/alerts' }, { text: '🟢 /status', callback_data: '/status' }],
+      ],
     };
   }
 
   return {
-    text: `👋 Hello! I didn't recognize that command.\n\nType <code>/rates</code> to see latest rates or <code>/help</code> for commands.`,
+    text: `👋 Hello! I didn't recognize that command.\n\nType /rates to see latest rates or /help for commands.`,
+    buttons: [
+      [{ text: '📊 /rates', callback_data: '/rates' }, { text: '📖 /help', callback_data: '/help' }],
+    ],
   };
 }
 

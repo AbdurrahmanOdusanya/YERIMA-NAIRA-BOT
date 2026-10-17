@@ -8,17 +8,25 @@ interface TelegramSimulatorProps {
   botConfig: BotConfig;
 }
 
+function formatClickableCommands(htmlText: string): string {
+  // Matches bot commands in text, e.g. /alert USD 1650, /convert 100 USD, /convert 250 EUR, /rates, /usd, etc.
+  const regex = /(?<!<)\/((?:alert\s+[A-Za-z]+\s+\d+)|(?:convert\s+\d+(?:\s+[A-Za-z]+)?)|(?:convert\s+[A-Za-z]+\s+\d+)|(?:rates|usd|eur|gbp|cad|usdt|alerts|status|help|start|alert|convert))\b/gi;
+  return htmlText.replace(regex, (match) => {
+    return `<button type="button" data-cmd="${match}" class="inline-flex items-center text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/25 px-1 py-0.5 rounded font-mono font-medium transition-colors cursor-pointer text-xs underline decoration-sky-400/50" title="Click to run ${match}">${match}</button>`;
+  });
+}
+
 export function TelegramSimulator({ rates, botConfig }: TelegramSimulatorProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init-1',
       sender: 'bot',
-      text: `🇳🇬 <b>Welcome to Yerima Naira Alert Bot!</b> 🇳🇬\n\nI monitor real-time foreign exchange rates against the Nigerian Naira (NGN) across both Parallel (BDC) and Official (NAFEM) markets.\n\n📱 <b>Telegram Mini App Available:</b> Tap the <b>"⚡ Open Naira FX Mini App"</b> button below to launch the live interactive app directly inside Telegram!\n\n<b>Available Commands:</b>\n• <code>/rates</code> - View all current live FX rates\n• <code>/usd</code>, <code>/eur</code>, <code>/gbp</code> - Quick pair check\n• <code>/convert 100 USD</code> - Instant currency converter\n• <code>/alert USD 1650</code> - Set instant rate alert\n• <code>/alerts</code> - View your active alert rules\n• <code>/help</code> - Detailed command manual`,
+      text: `🇳🇬 <b>Welcome to Yerima Naira Alert Bot!</b> 🇳🇬\n\nI monitor real-time foreign exchange rates against the Nigerian Naira (NGN) across both Parallel (BDC) and Official (NAFEM) markets.\n\n📱 <b>Telegram Mini App Available:</b> Tap the <b>"⚡ Open Naira FX Mini App"</b> button below to launch the live interactive app directly inside Telegram!\n\n<b>Available Commands:</b>\n• /rates - View all current live FX rates\n• /usd, /eur, /gbp - Quick pair check\n• /convert 100 USD - Instant currency converter\n• /alert USD 1650 - Set instant rate alert\n• /alerts - View your active alert rules\n• /help - Detailed command manual`,
       timestamp: '10:00 AM',
       buttons: [
         [{ text: '⚡ Open Naira FX Mini App', web_app: { url: `${botConfig.appUrl || ''}?tma=true` } }],
-        [{ text: '📊 Live Rates', callback_data: '/rates' }, { text: '💵 USD Check', callback_data: '/usd' }],
-        [{ text: '💶 EUR Check', callback_data: '/eur' }, { text: '💷 GBP Check', callback_data: '/gbp' }],
+        [{ text: '📊 /rates', callback_data: '/rates' }, { text: '💵 /usd', callback_data: '/usd' }],
+        [{ text: '🧮 /convert 100 USD', callback_data: '/convert 100 USD' }, { text: '🔔 /alert USD 1650', callback_data: '/alert USD 1650' }],
       ],
     },
   ]);
@@ -202,10 +210,19 @@ export function TelegramSimulator({ rates, botConfig }: TelegramSimulatorProps) 
                           : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-xs'
                       }`}
                     >
-                      {/* Message formatted content */}
+                      {/* Message formatted content with clickable commands */}
                       <div
                         className="leading-relaxed whitespace-pre-wrap break-words"
-                        dangerouslySetInnerHTML={{ __html: msg.text }}
+                        onClick={(e) => {
+                          const target = (e.target as HTMLElement).closest('[data-cmd]');
+                          if (target) {
+                            const cmd = target.getAttribute('data-cmd');
+                            if (cmd) {
+                              sendMessage(cmd);
+                            }
+                          }
+                        }}
+                        dangerouslySetInnerHTML={{ __html: formatClickableCommands(msg.text) }}
                       />
 
                       {/* Inline Keyboards / Buttons (if bot returned buttons) */}
