@@ -1,0 +1,20 @@
+[Unit]
+Description=Yerima Naira 24/7 Telegram Alert Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/yerima-naira-bot
+ExecStart=/usr/bin/npm run bot
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=yerima-naira-bot
+Environment=NODE_ENV=production
+Environment=TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN_HERE
+Environment=TELEGRAM_CHAT_ID=YOUR_TELEGRAM_CHAT_ID_HERE
+
+[Install]
+WantedBy=multi-user.target

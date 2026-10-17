@@ -1,0 +1,6 @@
+{
+  "name": "Yerima Naira - Telegram Exchange Rate Alert Bot",
+  "description": "Real-time exchange rate monitor and automated Telegram bot alerting system for USD, EUR, GBP, CAD to Nigerian Naira (NGN) price shifts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,28 @@
+services:
+  # Option 1: Full-Stack Web Service (Dashboard + Automated Bot)
+  - type: web
+    name: yerima-naira-app
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  # Option 2: Standalone 24/7 Bot Daemon (Ultra-lean, <35MB RAM, no web UI)
+  - type: worker
+    name: yerima-naira-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run bot
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
